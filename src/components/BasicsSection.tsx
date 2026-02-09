@@ -90,6 +90,27 @@ const ciComparisons: CIComparison[] = [
   { aspect: 'Memoria', chatNormale: 'Limitata dal contesto', codeInterpreter: 'Lavora sul file intero' },
 ];
 
+interface AltPlatform {
+  name: string;
+  feature: string;
+  note: string;
+}
+
+const altPlatforms: AltPlatform[] = [
+  { name: 'Claude', feature: 'Analysis Tool (Python in sandbox)', note: 'Pro €20/mese — supporta CSV e .xlsx' },
+  { name: 'Gemini Advanced', feature: 'Fino a 10 file, 100MB ciascuno', note: 'Google One AI Pro ~€20/mese' },
+];
+
+interface AiCreatesItem {
+  tool: string;
+  description: string;
+}
+
+const aiCreatesItems: AiCreatesItem[] = [
+  { tool: 'ChatGPT Agent', description: 'Crea spreadsheet Excel completi da un prompt, cercando anche dati dal web' },
+  { tool: 'Claude File Builder', description: 'Crea .xlsx con formule, grafici e fogli multipli' },
+];
+
 /* ------------------------------------------------------------------ */
 /*  Icons (SVG, no emoji)                                              */
 /* ------------------------------------------------------------------ */
@@ -179,6 +200,18 @@ function TerminalIcon() {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="4 17 10 11 4 5" />
       <line x1="12" y1="19" x2="20" y2="19" />
+    </svg>
+  );
+}
+
+function FileSpreadsheetIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="8" y1="13" x2="16" y2="13" />
+      <line x1="8" y1="17" x2="16" y2="17" />
+      <line x1="12" y1="9" x2="12" y2="21" />
     </svg>
   );
 }
@@ -569,7 +602,7 @@ export default function BasicsSection() {
         </div>
       </AnimatedSection>
 
-      {/* ── Code Interpreter ───────────────────────────────────── */}
+      {/* ── Data Analysis (ex Code Interpreter) ─────────────────── */}
       <AnimatedSection>
         <div
           className="glass-card p-6 overflow-hidden"
@@ -593,7 +626,10 @@ export default function BasicsSection() {
                 className="font-semibold text-lg"
                 style={{ color: 'var(--text-primary)' }}
               >
-                Code Interpreter
+                Data Analysis{' '}
+                <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}>
+                  (ex Code Interpreter)
+                </span>
               </h4>
               <p
                 className="text-sm"
@@ -608,12 +644,12 @@ export default function BasicsSection() {
             className="text-sm leading-relaxed mb-5"
             style={{ color: 'var(--text-secondary)' }}
           >
-            Quando attivate Code Interpreter (o &quot;Advanced Data Analysis&quot;), ChatGPT non si limita a
-            descrivere cosa farebbe: esegue realmente codice Python sui vostri dati, genera grafici
-            scaricabili e produce file di output. La differenza e sostanziale.
+            Data Analysis si attiva automaticamente quando caricate un file nella chat.
+            ChatGPT non si limita a descrivere cosa farebbe: esegue realmente codice Python
+            sui vostri dati, genera grafici scaricabili e produce file di output.
           </p>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto mb-5">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border-default)' }}>
@@ -633,7 +669,7 @@ export default function BasicsSection() {
                     className="text-left py-3 px-4 font-semibold"
                     style={{ color: 'var(--accent-primary)' }}
                   >
-                    Code Interpreter
+                    Data Analysis
                   </th>
                 </tr>
               </thead>
@@ -670,6 +706,133 @@ export default function BasicsSection() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Also Claude and Gemini */}
+          <div
+            className="rounded-xl p-4"
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <p
+              className="text-xs font-semibold uppercase tracking-wider mb-3"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Anche gli altri chatbot lo fanno
+            </p>
+            <div className="space-y-2">
+              {altPlatforms.map((p) => (
+                <div key={p.name} className="flex items-start gap-2.5">
+                  <span
+                    className="shrink-0 mt-0.5"
+                    style={{ color: 'var(--accent-primary)' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                  <div>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {p.name}
+                    </span>
+                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {' '}&mdash; {p.feature}
+                    </span>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{p.note}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </AnimatedSection>
+
+      {/* ── AI crea fogli da zero ─────────────────────────────── */}
+      <AnimatedSection>
+        <div
+          className="glass-card p-6 overflow-hidden"
+          style={{
+            borderLeft: '4px solid var(--color-success)',
+          }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <span
+              className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'rgba(34, 197, 94, 0.08)',
+                color: 'var(--color-success)',
+                border: '1px solid rgba(34, 197, 94, 0.15)',
+              }}
+            >
+              <FileSpreadsheetIcon />
+            </span>
+            <div>
+              <h4
+                className="font-semibold text-lg"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                L&apos;AI crea fogli Excel da zero
+              </h4>
+              <p
+                className="text-sm"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Non dovete piu partire da un foglio vuoto
+              </p>
+            </div>
+          </div>
+
+          <p
+            className="text-sm leading-relaxed mb-5"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            L&apos;AI non e piu solo un assistente che risponde a domande sui vostri dati &mdash;
+            e un creatore che costruisce fogli interi su richiesta.
+          </p>
+
+          <StaggerContainer className="grid sm:grid-cols-2 gap-4 mb-5">
+            {aiCreatesItems.map((item) => (
+              <StaggerItem key={item.tool}>
+                <div
+                  className="p-4 rounded-xl h-full"
+                  style={{
+                    background: 'rgba(34, 197, 94, 0.04)',
+                    border: '1px solid rgba(34, 197, 94, 0.15)',
+                  }}
+                >
+                  <p
+                    className="font-semibold text-sm mb-1"
+                    style={{ color: 'var(--color-success)' }}
+                  >
+                    {item.tool}
+                  </p>
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {item.description}
+                  </p>
+                </div>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+
+          {/* Example prompt */}
+          <div
+            className="rounded-lg p-4 font-mono text-sm"
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-primary)',
+            }}
+          >
+            <p className="text-xs font-sans font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+              Esempio di prompt
+            </p>
+            &quot;Crea un foglio Excel con un budget mensile per uno studente universitario a Milano,
+            con categorie spesa, formule per i totali e un grafico di riepilogo&quot;
           </div>
         </div>
       </AnimatedSection>

@@ -717,6 +717,109 @@ export default function IntegratedAISection() {
       </AnimatedSection>
 
       {/* ============================================================ */}
+      {/*  Section 3b: Rows.com & Julius AI                              */}
+      {/* ============================================================ */}
+      <AnimatedSection delay={0.17}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Rows.com */}
+          <div className="glass-card p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-3">
+              <span
+                className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{
+                  background: 'rgba(249, 115, 22, 0.08)',
+                  color: 'var(--accent-primary)',
+                  border: '1px solid rgba(249, 115, 22, 0.15)',
+                }}
+              >
+                <TableCellsIcon />
+              </span>
+              <div>
+                <h4
+                  className="font-semibold text-base"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Rows.com
+                </h4>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Foglio di calcolo con AI nativa
+                </p>
+              </div>
+            </div>
+            <ul className="space-y-2 mb-4 flex-1">
+              {[
+                'AI Analyst: linguaggio naturale per colonne, grafici, pulizia',
+                'Estrazione da PDF e screenshot con AI vision',
+                'Integrazioni live (Google Analytics, Ads, ecc.)',
+              ].map((item) => (
+                <li key={item} className="flex gap-2 items-start">
+                  <span className="shrink-0 mt-1" style={{ color: 'var(--accent-primary)' }}>
+                    <CheckIcon />
+                  </span>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium self-start"
+              style={{
+                background: 'rgba(34, 197, 94, 0.08)',
+                border: '1px solid rgba(34, 197, 94, 0.15)',
+                color: 'var(--color-success)',
+              }}
+            >
+              <CheckIcon /> Tier gratuito con AI inclusa
+            </span>
+          </div>
+
+          {/* Julius AI */}
+          <div className="glass-card p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-3">
+              <span
+                className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{
+                  background: 'rgba(249, 115, 22, 0.08)',
+                  color: 'var(--accent-primary)',
+                  border: '1px solid rgba(249, 115, 22, 0.15)',
+                }}
+              >
+                <ClipboardCheckIcon />
+              </span>
+              <div>
+                <h4
+                  className="font-semibold text-base"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Julius AI
+                </h4>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Analisi dati specializzata
+                </p>
+              </div>
+            </div>
+            <p
+              className="text-sm leading-relaxed mb-4 flex-1"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Non e un foglio di calcolo, ma un tool specializzato in analisi:
+              caricate CSV/Excel/PDF, fate domande in linguaggio naturale,
+              ottenete visualizzazioni e insight. Ideale per analisi rapide &quot;one-shot&quot;.
+            </p>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium self-start"
+              style={{
+                background: 'rgba(34, 197, 94, 0.08)',
+                border: '1px solid rgba(34, 197, 94, 0.15)',
+                color: 'var(--color-success)',
+              }}
+            >
+              <CheckIcon /> Tier gratuito limitato
+            </span>
+          </div>
+        </div>
+      </AnimatedSection>
+
+      {/* ============================================================ */}
       {/*  Section 4: Two approaches comparison                         */}
       {/* ============================================================ */}
       <AnimatedSection delay={0.2}>
