@@ -6,9 +6,18 @@ import { AnimatedSection, StaggerContainer, StaggerItem } from '@/components/Ani
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 
+interface SampleData {
+  headers: string[];
+  rows: string[][];
+  resultCol?: number;       // column index that contains the formula result
+  note?: string;            // extra note below the table (e.g. second table reference)
+}
+
 interface FormulaTab {
   id: string;
   label: string;
+  question: string;
+  sampleData: SampleData;
   prompt: string;
   formula: string;
   explanation: string;
@@ -18,13 +27,34 @@ const formulaTabs: FormulaTab[] = [
   {
     id: 'totale-vendita',
     label: 'Totale vendita',
+    question: 'Quanto incasso per ogni prodotto venduto?',
+    sampleData: {
+      headers: ['', 'A: Prodotto', 'B: Prezzo', 'C: Qtà', 'D: Totale'],
+      rows: [
+        ['2', 'Maglietta', '25,00 €', '3', '?'],
+        ['3', 'Felpa', '45,00 €', '1', '?'],
+        ['4', 'Cappellino', '15,00 €', '5', '?'],
+      ],
+      resultCol: 4,
+    },
     prompt: 'Ho colonna B con prezzi, colonna C con quantita. Voglio il totale in D2.',
     formula: '=B2*C2',
-    explanation: 'Moltiplica prezzo per quantita. Trascinate verso il basso.',
+    explanation: 'Moltiplica prezzo per quantita. Trascinate verso il basso per tutte le righe.',
   },
   {
     id: 'cerca-vert',
     label: 'CERCA.VERT',
+    question: 'Ho il codice prodotto: come trovo automaticamente il prezzo?',
+    sampleData: {
+      headers: ['', 'A: Codice', 'B: Prezzo'],
+      rows: [
+        ['2', 'PRD-001', '?'],
+        ['3', 'PRD-005', '?'],
+        ['4', 'PRD-012', '?'],
+      ],
+      resultCol: 2,
+      note: 'Tabella "Prodotti" (altro foglio): col A = codice, col B = nome, col C = prezzo',
+    },
     prompt:
       'Ho codice prodotto in A2. Nella tabella Prodotti (A:C), colonna 3 ha i prezzi. Voglio il prezzo in B2.',
     formula: '=CERCA.VERT(A2;Prodotti!A:C;3;FALSO)',
@@ -34,6 +64,18 @@ const formulaTabs: FormulaTab[] = [
   {
     id: 'commissione',
     label: 'Commissione variabile',
+    question: 'Ogni venditore ha una commissione diversa in base al fatturato. Come la calcolo?',
+    sampleData: {
+      headers: ['', 'A: Venditore', 'B: Vendite', 'C: Commissione'],
+      rows: [
+        ['2', 'Marco', '120.000 €', '?'],
+        ['3', 'Sara', '75.000 €', '?'],
+        ['4', 'Luca', '30.000 €', '?'],
+        ['5', 'Anna', '15.000 €', '?'],
+      ],
+      resultCol: 3,
+      note: 'Regola: >100k → 5%, >50k → 3%, >20k → 2%, altrimenti 1%',
+    },
     prompt:
       'Vendite in B2. Se >100.000 commissione 5%, se >50.000 3%, se >20.000 2%, altrimenti 1%.',
     formula: '=SE(B2>100000;B2*0,05;SE(B2>50000;B2*0,03;SE(B2>20000;B2*0,02;B2*0,01)))',
@@ -43,14 +85,35 @@ const formulaTabs: FormulaTab[] = [
   {
     id: 'conta-condizionali',
     label: 'Conta condizionali',
+    question: 'Quanti task del progetto sono stati completati?',
+    sampleData: {
+      headers: ['', 'A: Task', 'B: Responsabile', 'C: Stato'],
+      rows: [
+        ['2', 'Report vendite', 'Marco', 'Completato'],
+        ['3', 'Analisi mercato', 'Sara', 'In corso'],
+        ['4', 'Budget Q2', 'Luca', 'Completato'],
+        ['5', 'Piano marketing', 'Anna', 'In attesa'],
+        ['6', 'Formazione team', 'Marco', 'Completato'],
+      ],
+    },
     prompt: "Conta quante celle in colonna C contengono 'Completato'.",
     formula: '=CONTA.SE(C:C;"Completato")',
     explanation:
-      'Conta le celle che corrispondono esattamente. Per condizioni multiple usate CONTA.PIU.SE.',
+      'Conta le celle che corrispondono esattamente. Risultato: 3. Per condizioni multiple usate CONTA.PIU.SE.',
   },
   {
     id: 'spiega-formula',
     label: 'Spiega formula',
+    question: 'Un collega vi ha lasciato questa formula incomprensibile. Cosa fa?',
+    sampleData: {
+      headers: ['', 'A: Ordine', 'B: Stato', 'C: Prezzo base', 'D: Prezzo finale'],
+      rows: [
+        ['2', '150', 'Completato', '500 €', '550 €'],
+        ['3', '80', 'In corso', '300 €', '315 €'],
+        ['4', '30', 'Completato', '200 €', '200 €'],
+      ],
+      resultCol: 4,
+    },
     prompt: 'Spiegami: =SE(E(A2>100;B2="Completato");C2*1.1;SE(A2>50;C2*1.05;C2))',
     formula: '=SE(E(A2>100;B2="Completato");C2*1.1;SE(A2>50;C2*1.05;C2))',
     explanation:
@@ -66,81 +129,29 @@ interface ErrorEntry {
 
 const excelErrors: ErrorEntry[] = [
   { code: '#N/D', meaning: 'Non trovato', cause: 'CERCA.VERT non trova il valore cercato' },
-  {
-    code: '#VALORE!',
-    meaning: 'Valore errato',
-    cause: 'Operazione matematica su testo',
-  },
-  {
-    code: '#RIF!',
-    meaning: 'Riferimento invalido',
-    cause: 'Cella o foglio eliminato',
-  },
+  { code: '#VALORE!', meaning: 'Valore errato', cause: 'Operazione matematica su testo' },
+  { code: '#RIF!', meaning: 'Riferimento invalido', cause: 'Cella o foglio eliminato' },
   { code: '#DIV/0!', meaning: 'Divisione per zero', cause: 'Il divisore e zero o cella vuota' },
-  {
-    code: '#NOME?',
-    meaning: 'Nome non riconosciuto',
-    cause: 'Funzione scritta male o non esistente',
-  },
+  { code: '#NOME?', meaning: 'Nome non riconosciuto', cause: 'Funzione scritta male o non esistente' },
 ];
 
 interface FormulaEntry {
   formula: string;
-  description: string;
+  question: string;
   example: string;
 }
 
 const topFormulas: FormulaEntry[] = [
-  {
-    formula: 'SOMMA',
-    description: 'Somma un intervallo di numeri',
-    example: '=SOMMA(B2:B100)',
-  },
-  {
-    formula: 'MEDIA',
-    description: 'Calcola la media aritmetica',
-    example: '=MEDIA(C2:C50)',
-  },
-  {
-    formula: 'CONTA.VALORI',
-    description: 'Conta celle non vuote',
-    example: '=CONTA.VALORI(A:A)',
-  },
-  {
-    formula: 'CONTA.SE',
-    description: 'Conta celle con una condizione',
-    example: '=CONTA.SE(D:D;"Completato")',
-  },
-  {
-    formula: 'SOMMA.SE',
-    description: 'Somma con una condizione',
-    example: '=SOMMA.SE(A:A;"Nord";B:B)',
-  },
-  {
-    formula: 'SE',
-    description: 'Condizione logica (se/allora/altrimenti)',
-    example: '=SE(A2>100;"Alto";"Basso")',
-  },
-  {
-    formula: 'CERCA.VERT',
-    description: 'Cerca un valore in una tabella',
-    example: '=CERCA.VERT(A2;Tab!A:C;3;FALSO)',
-  },
-  {
-    formula: 'CONCATENA / &',
-    description: 'Unisce testi da piu celle',
-    example: '=A2&" "&B2',
-  },
-  {
-    formula: 'SINISTRA / DESTRA',
-    description: 'Estrae caratteri da un testo',
-    example: '=SINISTRA(A2;3)',
-  },
-  {
-    formula: 'UNICO',
-    description: 'Restituisce valori univoci (365)',
-    example: '=UNICO(A2:A100)',
-  },
+  { formula: 'SOMMA', question: 'Quanto in totale?', example: '=SOMMA(B2:B100)' },
+  { formula: 'MEDIA', question: 'Qual e la media?', example: '=MEDIA(C2:C50)' },
+  { formula: 'CONTA.VALORI', question: 'Quante celle piene?', example: '=CONTA.VALORI(A:A)' },
+  { formula: 'CONTA.SE', question: 'Quante con questa condizione?', example: '=CONTA.SE(D:D;"Completato")' },
+  { formula: 'SOMMA.SE', question: 'Totale solo per una categoria?', example: '=SOMMA.SE(A:A;"Nord";B:B)' },
+  { formula: 'SE', question: 'Se X allora Y, altrimenti Z?', example: '=SE(A2>100;"Alto";"Basso")' },
+  { formula: 'CERCA.VERT', question: 'Trovo un valore in un\'altra tabella?', example: '=CERCA.VERT(A2;Tab!A:C;3;FALSO)' },
+  { formula: 'CONCATENA / &', question: 'Unisco testi da piu celle?', example: '=A2&" "&B2' },
+  { formula: 'SINISTRA / DESTRA', question: 'Estraggo parte di un testo?', example: '=SINISTRA(A2;3)' },
+  { formula: 'UNICO', question: 'Lista senza duplicati?', example: '=UNICO(A2:A100)' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -149,16 +160,7 @@ const topFormulas: FormulaEntry[] = [
 
 function UserIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
       <circle cx="12" cy="7" r="4" />
     </svg>
@@ -167,16 +169,7 @@ function UserIcon() {
 
 function SparkleIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
     </svg>
   );
@@ -184,16 +177,7 @@ function SparkleIcon() {
 
 function AlertTriangleIcon() {
   return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -203,16 +187,7 @@ function AlertTriangleIcon() {
 
 function XCircleIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <line x1="15" y1="9" x2="9" y2="15" />
       <line x1="9" y1="9" x2="15" y2="15" />
@@ -222,16 +197,7 @@ function XCircleIcon() {
 
 function TableIcon() {
   return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <line x1="3" y1="9" x2="21" y2="9" />
       <line x1="3" y1="15" x2="21" y2="15" />
@@ -243,20 +209,97 @@ function TableIcon() {
 
 function ClipboardCheckIcon() {
   return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
       <rect x="8" y="2" width="8" height="4" rx="1" />
       <path d="M9 14l2 2 4-4" />
     </svg>
+  );
+}
+
+function HelpCircleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mini Spreadsheet component                                         */
+/* ------------------------------------------------------------------ */
+
+function MiniSpreadsheet({ data }: { data: SampleData }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            {data.headers.map((h, i) => (
+              <th
+                key={i}
+                className="py-1.5 px-2 font-semibold text-left whitespace-nowrap"
+                style={{
+                  background: i === 0 ? 'var(--bg-elevated)' : 'rgba(249, 115, 22, 0.06)',
+                  color: i === 0 ? 'var(--text-muted)' : 'var(--accent-primary)',
+                  borderBottom: '2px solid var(--border-subtle)',
+                  borderRight: i < data.headers.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  width: i === 0 ? '28px' : 'auto',
+                  fontSize: i === 0 ? '0.65rem' : '0.7rem',
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.rows.map((row, ri) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => {
+                const isRowNum = ci === 0;
+                const isResult = data.resultCol !== undefined && ci === data.resultCol;
+                return (
+                  <td
+                    key={ci}
+                    className="py-1.5 px-2 whitespace-nowrap"
+                    style={{
+                      background: isRowNum
+                        ? 'var(--bg-elevated)'
+                        : isResult
+                          ? 'rgba(249, 115, 22, 0.06)'
+                          : 'transparent',
+                      color: isRowNum
+                        ? 'var(--text-muted)'
+                        : isResult && cell === '?'
+                          ? 'var(--accent-primary)'
+                          : 'var(--text-secondary)',
+                      borderBottom: ri < data.rows.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                      borderRight: ci < row.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                      fontSize: isRowNum ? '0.65rem' : '0.75rem',
+                      fontWeight: isResult && cell === '?' ? 700 : isRowNum ? 500 : 400,
+                      fontFamily: isResult || isRowNum ? 'var(--font-geist-mono), monospace' : 'inherit',
+                    }}
+                  >
+                    {cell}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {data.note && (
+        <p
+          className="text-xs mt-2 px-1 leading-relaxed"
+          style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+        >
+          {data.note}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -277,14 +320,12 @@ export default function FormulaSection() {
         <div className="glass-card overflow-hidden">
           {/* Header */}
           <div className="p-6 pb-0">
-            <h3
-              className="heading-subsection mb-1"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h3 className="heading-subsection mb-1" style={{ color: 'var(--text-primary)' }}>
               Dall&apos;italiano alla formula
             </h3>
             <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
               Descrivete cosa vi serve in italiano, l&apos;AI genera la formula Excel.
+              Ogni esempio mostra i dati di partenza e la domanda a cui risponde.
             </p>
           </div>
 
@@ -299,21 +340,14 @@ export default function FormulaSection() {
                 onClick={() => setActiveTab(idx)}
                 className="shrink-0 px-4 py-3 text-sm font-medium transition-all whitespace-nowrap"
                 style={{
-                  background:
-                    activeTab === idx ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
-                  color:
-                    activeTab === idx
-                      ? 'var(--accent-primary)'
-                      : 'var(--text-muted)',
+                  background: activeTab === idx ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
+                  color: activeTab === idx ? 'var(--accent-primary)' : 'var(--text-muted)',
                   marginBottom: '-1px',
                   cursor: 'pointer',
                   borderTop: 'none',
                   borderLeft: 'none',
                   borderRight: 'none',
-                  borderBottom:
-                    activeTab === idx
-                      ? '2px solid var(--accent-primary)'
-                      : '2px solid transparent',
+                  borderBottom: activeTab === idx ? '2px solid var(--accent-primary)' : '2px solid transparent',
                 }}
               >
                 {tab.label}
@@ -321,15 +355,34 @@ export default function FormulaSection() {
             ))}
           </div>
 
+          {/* Question + Data Table */}
+          <div className="p-6 pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            <div className="flex items-start gap-2.5 mb-4">
+              <span className="shrink-0 mt-0.5" style={{ color: 'var(--accent-primary)' }}>
+                <HelpCircleIcon />
+              </span>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {current.question}
+              </p>
+            </div>
+            <div
+              className="rounded-xl p-3"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
+            >
+              <p
+                className="text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                I vostri dati
+              </p>
+              <MiniSpreadsheet data={current.sampleData} />
+            </div>
+          </div>
+
           {/* Content: prompt (left) + formula (right) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
             {/* Left: User prompt */}
-            <div
-              className="p-6"
-              style={{
-                borderRight: '1px solid var(--border-subtle)',
-              }}
-            >
+            <div className="p-6" style={{ borderRight: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <span
                   className="w-7 h-7 rounded-full flex items-center justify-center"
@@ -341,10 +394,7 @@ export default function FormulaSection() {
                 >
                   <UserIcon />
                 </span>
-                <span
-                  className="text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: 'var(--text-muted)' }}
-                >
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                   La vostra richiesta
                 </span>
               </div>
@@ -353,7 +403,6 @@ export default function FormulaSection() {
                 style={{
                   background: 'var(--bg-elevated)',
                   border: '1px solid var(--border-subtle)',
-                  fontFamily: 'var(--font-sans)',
                   fontSize: '0.9375rem',
                   lineHeight: '1.6',
                   color: 'var(--text-primary)',
@@ -376,10 +425,7 @@ export default function FormulaSection() {
                 >
                   <SparkleIcon />
                 </span>
-                <span
-                  className="text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: 'var(--accent-primary)' }}
-                >
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent-primary)' }}>
                   Risposta AI
                 </span>
               </div>
@@ -394,20 +440,14 @@ export default function FormulaSection() {
               >
                 <code
                   className="block font-mono text-sm font-semibold"
-                  style={{
-                    color: 'var(--accent-primary)',
-                    wordBreak: 'break-all',
-                  }}
+                  style={{ color: 'var(--accent-primary)', wordBreak: 'break-all' }}
                 >
                   {current.formula}
                 </code>
               </div>
 
               {/* Explanation */}
-              <div
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--text-secondary)' }}
-              >
+              <div className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                 {current.explanation.split('\n').map((line, i) => (
                   <p key={i} className={i > 0 ? 'mt-1' : ''}>
                     {line}
@@ -423,134 +463,60 @@ export default function FormulaSection() {
         {/* ============================================================ */}
         <AnimatedSection delay={0.1}>
           <div className="warning-card flex gap-4 items-start">
-            <span
-              className="shrink-0 mt-0.5"
-              style={{ color: 'var(--color-warning)' }}
-            >
+            <span className="shrink-0 mt-0.5" style={{ color: 'var(--color-warning)' }}>
               <AlertTriangleIcon />
             </span>
             <div className="space-y-3 flex-1">
-              <p
-                className="font-semibold"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Attenzione ai separatori: italiano vs inglese
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Italian */}
-                <div
-                  className="rounded-lg p-3"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <p
-                    className="text-xs font-semibold mb-1"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                <div className="rounded-lg p-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
                     Excel italiano
                   </p>
-                  <p
-                    className="text-xs mb-1"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
+                  <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
                     Separatore: punto e virgola{' '}
-                    <code
-                      className="font-mono font-bold"
-                      style={{ color: 'var(--accent-primary)' }}
-                    >
-                      ;
-                    </code>
+                    <code className="font-mono font-bold" style={{ color: 'var(--accent-primary)' }}>;</code>
                   </p>
                   <code
                     className="block font-mono text-xs mt-2 p-2 rounded"
-                    style={{
-                      background: 'var(--bg-elevated)',
-                      color: 'var(--text-primary)',
-                    }}
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
                   >
                     {'=SE(A1>10;"Alto";"Basso")'}
                   </code>
                 </div>
 
-                {/* English */}
-                <div
-                  className="rounded-lg p-3"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <p
-                    className="text-xs font-semibold mb-1"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                <div className="rounded-lg p-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
                     Excel inglese
                   </p>
-                  <p
-                    className="text-xs mb-1"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
+                  <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
                     Separatore: virgola{' '}
-                    <code
-                      className="font-mono font-bold"
-                      style={{ color: 'var(--accent-primary)' }}
-                    >
-                      ,
-                    </code>
+                    <code className="font-mono font-bold" style={{ color: 'var(--accent-primary)' }}>,</code>
                   </p>
                   <code
                     className="block font-mono text-xs mt-2 p-2 rounded"
-                    style={{
-                      background: 'var(--bg-elevated)',
-                      color: 'var(--text-primary)',
-                    }}
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
                   >
                     {'=IF(A1>10,"Alto","Basso")'}
                   </code>
                 </div>
 
-                {/* Google Sheets */}
-                <div
-                  className="rounded-lg p-3"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <p
-                    className="text-xs font-semibold mb-1"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                <div className="rounded-lg p-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
                     Google Sheets
                   </p>
-                  <p
-                    className="text-xs"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                     Dipende dalla lingua impostata nel vostro account Google
                   </p>
                 </div>
               </div>
-              <p
-                className="text-sm font-medium"
-                style={{ color: 'var(--text-secondary)' }}
-              >
+              <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Se la formula da errore di sintassi, provate a sostituire{' '}
-                <code
-                  className="font-mono font-bold"
-                  style={{ color: 'var(--accent-primary)' }}
-                >
-                  ;
-                </code>{' '}
+                <code className="font-mono font-bold" style={{ color: 'var(--accent-primary)' }}>;</code>{' '}
                 con{' '}
-                <code
-                  className="font-mono font-bold"
-                  style={{ color: 'var(--accent-primary)' }}
-                >
-                  ,
-                </code>{' '}
+                <code className="font-mono font-bold" style={{ color: 'var(--accent-primary)' }}>,</code>{' '}
                 (o viceversa).
               </p>
             </div>
@@ -563,71 +529,28 @@ export default function FormulaSection() {
         <AnimatedSection delay={0.15}>
           <div className="glass-card p-6">
             <div className="flex items-center gap-3 mb-5">
-              <span style={{ color: 'var(--color-error)' }}>
-                <XCircleIcon />
-              </span>
-              <h3
-                className="font-semibold text-lg"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span style={{ color: 'var(--color-error)' }}><XCircleIcon /></span>
+              <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
                 Errori comuni di Excel
               </h3>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr
-                    style={{
-                      borderBottom: '2px solid var(--border-subtle)',
-                    }}
-                  >
-                    <th
-                      className="text-left py-2.5 px-3 font-semibold"
-                      style={{ color: 'var(--text-muted)', width: '120px' }}
-                    >
-                      Errore
-                    </th>
-                    <th
-                      className="text-left py-2.5 px-3 font-semibold"
-                      style={{ color: 'var(--text-muted)', width: '180px' }}
-                    >
-                      Significato
-                    </th>
-                    <th
-                      className="text-left py-2.5 px-3 font-semibold"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      Causa tipica
-                    </th>
+                  <tr style={{ borderBottom: '2px solid var(--border-subtle)' }}>
+                    <th className="text-left py-2.5 px-3 font-semibold" style={{ color: 'var(--text-muted)', width: '120px' }}>Errore</th>
+                    <th className="text-left py-2.5 px-3 font-semibold" style={{ color: 'var(--text-muted)', width: '180px' }}>Significato</th>
+                    <th className="text-left py-2.5 px-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Causa tipica</th>
                   </tr>
                 </thead>
                 <tbody>
                   {excelErrors.map((err) => (
-                    <tr
-                      key={err.code}
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                    >
+                    <tr key={err.code} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td className="py-2.5 px-3">
-                        <code
-                          className="font-mono font-bold text-sm"
-                          style={{ color: 'var(--color-error)' }}
-                        >
-                          {err.code}
-                        </code>
+                        <code className="font-mono font-bold text-sm" style={{ color: 'var(--color-error)' }}>{err.code}</code>
                       </td>
-                      <td
-                        className="py-2.5 px-3 font-medium"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        {err.meaning}
-                      </td>
-                      <td
-                        className="py-2.5 px-3"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
-                        {err.cause}
-                      </td>
+                      <td className="py-2.5 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{err.meaning}</td>
+                      <td className="py-2.5 px-3" style={{ color: 'var(--text-secondary)' }}>{err.cause}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -637,48 +560,26 @@ export default function FormulaSection() {
         </AnimatedSection>
 
         {/* ============================================================ */}
-        {/*  4. Top 10 Formulas                                          */}
+        {/*  4. Top 10 Formulas (with "question answered")               */}
         {/* ============================================================ */}
         <AnimatedSection delay={0.2}>
           <div className="glass-card p-6">
             <div className="flex items-center gap-3 mb-5">
-              <span style={{ color: 'var(--accent-primary)' }}>
-                <TableIcon />
-              </span>
-              <h3
-                className="font-semibold text-lg"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span style={{ color: 'var(--accent-primary)' }}><TableIcon /></span>
+              <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
                 Le 10 formule essenziali
               </h3>
             </div>
-
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+              Non dovete memorizzarle: chiedete all&apos;AI &quot;fammi una formula che...&quot; e vi proporra quella giusta.
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr
-                    style={{
-                      borderBottom: '2px solid var(--border-subtle)',
-                    }}
-                  >
-                    <th
-                      className="text-left py-2.5 px-3 font-semibold"
-                      style={{ color: 'var(--text-muted)', width: '180px' }}
-                    >
-                      Formula
-                    </th>
-                    <th
-                      className="text-left py-2.5 px-3 font-semibold"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      Cosa fa
-                    </th>
-                    <th
-                      className="text-left py-2.5 px-3 font-semibold"
-                      style={{ color: 'var(--text-muted)', width: '280px' }}
-                    >
-                      Esempio d&apos;uso
-                    </th>
+                  <tr style={{ borderBottom: '2px solid var(--border-subtle)' }}>
+                    <th className="text-left py-2.5 px-3 font-semibold" style={{ color: 'var(--text-muted)', width: '160px' }}>Formula</th>
+                    <th className="text-left py-2.5 px-3 font-semibold" style={{ color: 'var(--text-muted)' }}>A che domanda risponde</th>
+                    <th className="text-left py-2.5 px-3 font-semibold" style={{ color: 'var(--text-muted)', width: '260px' }}>Esempio</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -686,34 +587,17 @@ export default function FormulaSection() {
                     <tr
                       key={f.formula}
                       style={{
-                        borderBottom:
-                          idx < topFormulas.length - 1
-                            ? '1px solid var(--border-subtle)'
-                            : 'none',
+                        borderBottom: idx < topFormulas.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                       }}
                     >
                       <td className="py-2.5 px-3">
-                        <code
-                          className="font-mono font-semibold text-sm"
-                          style={{ color: 'var(--accent-primary)' }}
-                        >
-                          {f.formula}
-                        </code>
+                        <code className="font-mono font-semibold text-sm" style={{ color: 'var(--accent-primary)' }}>{f.formula}</code>
                       </td>
-                      <td
-                        className="py-2.5 px-3"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
-                        {f.description}
-                      </td>
+                      <td className="py-2.5 px-3" style={{ color: 'var(--text-secondary)' }}>{f.question}</td>
                       <td className="py-2.5 px-3">
                         <code
                           className="font-mono text-xs px-2 py-1 rounded"
-                          style={{
-                            background: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)',
-                            border: '1px solid var(--border-subtle)',
-                          }}
+                          style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
                         >
                           {f.example}
                         </code>
@@ -731,17 +615,11 @@ export default function FormulaSection() {
         {/* ============================================================ */}
         <AnimatedSection delay={0.25}>
           <div className="success-card flex gap-4 items-start">
-            <span
-              className="shrink-0 mt-0.5"
-              style={{ color: 'var(--color-success)' }}
-            >
+            <span className="shrink-0 mt-0.5" style={{ color: 'var(--color-success)' }}>
               <ClipboardCheckIcon />
             </span>
             <div className="space-y-3 flex-1">
-              <p
-                className="font-semibold"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Checklist di verifica
               </p>
               <StaggerContainer className="space-y-2">
@@ -763,12 +641,7 @@ export default function FormulaSection() {
                       >
                         {idx + 1}
                       </span>
-                      <p
-                        className="text-sm"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
-                        {step}
-                      </p>
+                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{step}</p>
                     </div>
                   </StaggerItem>
                 ))}
